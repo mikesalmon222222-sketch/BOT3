@@ -30,7 +30,7 @@ export const encrypt = (text) => {
     if (!text) return '';
     
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipherGCM(algorithm, encryptionKey, iv);
+    const cipher = crypto.createCipheriv(algorithm, encryptionKey, iv);
     cipher.setAAD(Buffer.from('septa-credentials'));
     
     let encrypted = cipher.update(text, 'utf8', 'hex');
@@ -64,7 +64,7 @@ export const decrypt = (encryptedData) => {
     const authTag = Buffer.from(parts[1], 'hex');
     const encrypted = parts[2];
     
-    const decipher = crypto.createDecipherGCM(algorithm, encryptionKey, iv);
+    const decipher = crypto.createDecipheriv(algorithm, encryptionKey, iv);
     decipher.setAuthTag(authTag);
     decipher.setAAD(Buffer.from('septa-credentials'));
     
