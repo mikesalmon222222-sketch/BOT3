@@ -2,6 +2,7 @@ import Credential from '../models/Credential.js';
 import { encrypt, decrypt } from '../utils/encryption.js';
 import { SeptaScraper } from '../services/scrapers/septaScraper.js';
 import logger from '../utils/logger.js';
+import mongoose from 'mongoose';
 
 export const getCredentials = async (req, res) => {
   try {
@@ -44,6 +45,15 @@ export const saveSeptaCredentials = async (req, res) => {
       });
     }
 
+    // Check if database is connected
+    if (mongoose.connection.readyState !== 1) {
+      logger.error('Database not connected, cannot save credentials');
+      return res.status(503).json({
+        success: false,
+        error: 'Database connection unavailable. Please try again later.'
+      });
+    }
+
     // Encrypt credentials
     const usernameEnc = encrypt(username);
     const passwordEnc = encrypt(password);
@@ -68,6 +78,22 @@ export const saveSeptaCredentials = async (req, res) => {
     });
   } catch (error) {
     logger.error('Error saving SEPTA credentials:', error);
+    
+    // Provide more specific error messages
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid credential data provided'
+      });
+    }
+    
+    if (error.name === 'MongoNetworkError') {
+      return res.status(503).json({
+        success: false,
+        error: 'Database connection error. Please try again later.'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Failed to save credentials'
@@ -77,6 +103,15 @@ export const saveSeptaCredentials = async (req, res) => {
 
 export const testSeptaCredentials = async (req, res) => {
   try {
+    // Check if database is connected
+    if (mongoose.connection.readyState !== 1) {
+      logger.error('Database not connected, cannot test credentials');
+      return res.status(503).json({
+        success: false,
+        error: 'Database connection unavailable. Please try again later.'
+      });
+    }
+
     // Get stored credentials
     const credential = await Credential.findOne({ portal: 'SEPTA' });
     
@@ -123,6 +158,15 @@ export const testSeptaCredentials = async (req, res) => {
     });
   } catch (error) {
     logger.error('Error testing SEPTA credentials:', error);
+    
+    // Provide more specific error messages
+    if (error.name === 'MongoNetworkError') {
+      return res.status(503).json({
+        success: false,
+        error: 'Database connection error. Please try again later.'
+      });
+    }
+    
     res.status(500).json({
       success: false,
       error: 'Failed to test credentials'
