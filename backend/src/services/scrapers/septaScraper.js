@@ -17,7 +17,7 @@ export class SeptaScraper {
       
       // Try different Chrome paths and configurations
       const launchOptions = {
-        headless: !this.debugMode, // Run in non-headless mode if debugging
+        headless: true, // Always use headless in sandboxed environments
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -26,7 +26,8 @@ export class SeptaScraper {
           '--disable-features=VizDisplayCompositor',
           '--disable-background-timer-throttling',
           '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding'
+          '--disable-renderer-backgrounding',
+          '--disable-gpu'
         ]
       };
 
@@ -43,16 +44,36 @@ export class SeptaScraper {
 
       this.page = await this.browser.newPage();
       
-      // Set realistic user agent and viewport
-      await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-      await this.page.setViewportSize({ width: 1366, height: 768 });
+      // Set realistic user agent and viewport (try different method names)
+      try {
+        await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      } catch (error) {
+        logger.warn('setUserAgent failed, trying alternative method:', error.message);
+        try {
+          await this.page.setExtraHTTPHeaders({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          });
+        } catch (error2) {
+          logger.warn('setExtraHTTPHeaders also failed:', error2.message);
+        }
+      }
+      
+      try {
+        await this.page.setViewportSize({ width: 1366, height: 768 });
+      } catch (error) {
+        logger.warn('setViewportSize failed:', error.message);
+      }
       
       // Enable request interception for debugging
       if (this.debugMode) {
-        await this.page.route('**/*', (route) => {
-          logger.debug(`Request: ${route.request().method()} ${route.request().url()}`);
-          route.continue();
-        });
+        try {
+          await this.page.route('**/*', (route) => {
+            logger.debug(`Request: ${route.request().method()} ${route.request().url()}`);
+            route.continue();
+          });
+        } catch (error) {
+          logger.warn('Failed to enable request interception:', error.message);
+        }
       }
 
       // Create screenshot directory
