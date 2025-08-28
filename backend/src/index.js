@@ -10,6 +10,7 @@ import logger from './utils/logger.js';
 import healthRoutes from './routes/healthRoutes.js';
 import bidRoutes from './routes/bidRoutes.js';
 import credentialRoutes from './routes/credentialRoutes.js';
+import debugRoutes from './routes/debugRoutes.js';
 
 // Import services for scheduled tasks
 import { SeptaScraper } from './services/scrapers/septaScraper.js';
@@ -45,6 +46,7 @@ app.use((req, res, next) => {
 app.use('/api/health', healthRoutes);
 app.use('/api/bids', bidRoutes);
 app.use('/api/credentials', credentialRoutes);
+app.use('/api/debug', debugRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

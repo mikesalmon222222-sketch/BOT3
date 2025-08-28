@@ -12,4 +12,10 @@ router.delete('/:id', deleteBid);
 // POST /api/bids/fetch/septa - Manually trigger SEPTA bid fetch
 router.post('/fetch/septa', fetchSeptaBids);
 
+// POST /api/bids/fetch/septa/debug - Debug mode bid fetch with screenshots
+router.post('/fetch/septa/debug', (req, res, next) => {
+  req.query.debug = 'true';
+  next();
+}, fetchSeptaBids);
+
 export default router;

@@ -3,13 +3,31 @@ import { encrypt, decrypt } from '../utils/encryption.js';
 import { SeptaScraper } from '../services/scrapers/septaScraper.js';
 import logger from '../utils/logger.js';
 import mongoose from 'mongoose';
+import { mockDB } from '../utils/mockDB.js';
+
+// Check if we should use mock database
+const useMockDB = () => mongoose.connection.readyState !== 1;
 
 export const getCredentials = async (req, res) => {
   try {
-    const credentials = await Credential.find({}, {
-      usernameEnc: 0,
-      passwordEnc: 0
-    }).lean();
+    let credentials;
+    
+    if (useMockDB()) {
+      logger.info('Using mock database for credential retrieval');
+      credentials = await mockDB.findCredentials();
+      // Remove sensitive fields
+      credentials = credentials.map(cred => ({
+        portal: cred.portal,
+        lastTestedAt: cred.lastTestedAt,
+        lastTestOk: cred.lastTestOk,
+        updatedAt: cred.updatedAt
+      }));
+    } else {
+      credentials = await Credential.find({}, {
+        usernameEnc: 0,
+        passwordEnc: 0
+      }).lean();
+    }
 
     const credentialStatus = credentials.reduce((acc, cred) => {
       acc[cred.portal] = {
@@ -45,8 +63,8 @@ export const saveSeptaCredentials = async (req, res) => {
       });
     }
 
-    // Check if database is connected
-    if (mongoose.connection.readyState !== 1) {
+    // Check if database is connected (only relevant for MongoDB)
+    if (!useMockDB() && mongoose.connection.readyState !== 1) {
       logger.error('Database not connected, cannot save credentials');
       return res.status(503).json({
         success: false,
@@ -58,17 +76,24 @@ export const saveSeptaCredentials = async (req, res) => {
     const usernameEnc = encrypt(username);
     const passwordEnc = encrypt(password);
 
+    const credentialData = {
+      portal: 'SEPTA',
+      usernameEnc,
+      passwordEnc,
+      lastTestOk: false // Reset test status
+    };
+
     // Save or update credentials
-    await Credential.findOneAndUpdate(
-      { portal: 'SEPTA' },
-      {
-        portal: 'SEPTA',
-        usernameEnc,
-        passwordEnc,
-        lastTestOk: false // Reset test status
-      },
-      { upsert: true, new: true }
-    );
+    if (useMockDB()) {
+      logger.info('Using mock database for credential storage');
+      await mockDB.saveCredential(credentialData);
+    } else {
+      await Credential.findOneAndUpdate(
+        { portal: 'SEPTA' },
+        credentialData,
+        { upsert: true, new: true }
+      );
+    }
 
     logger.info('SEPTA credentials saved successfully');
 
@@ -103,8 +128,8 @@ export const saveSeptaCredentials = async (req, res) => {
 
 export const testSeptaCredentials = async (req, res) => {
   try {
-    // Check if database is connected
-    if (mongoose.connection.readyState !== 1) {
+    // Check if database is connected (only relevant for MongoDB)
+    if (!useMockDB() && mongoose.connection.readyState !== 1) {
       logger.error('Database not connected, cannot test credentials');
       return res.status(503).json({
         success: false,
@@ -113,12 +138,19 @@ export const testSeptaCredentials = async (req, res) => {
     }
 
     // Get stored credentials
-    const credential = await Credential.findOne({ portal: 'SEPTA' });
+    let credential;
+    
+    if (useMockDB()) {
+      logger.info('Using mock database for credential retrieval');
+      credential = await mockDB.findCredentialByPortal('SEPTA');
+    } else {
+      credential = await Credential.findOne({ portal: 'SEPTA' });
+    }
     
     if (!credential) {
       return res.status(400).json({
         success: false,
-        error: 'No SEPTA credentials found'
+        error: 'No SEPTA credentials found. Please save credentials first.'
       });
     }
 
@@ -133,27 +165,58 @@ export const testSeptaCredentials = async (req, res) => {
       logger.error('Failed to decrypt SEPTA credentials:', error);
       return res.status(500).json({
         success: false,
-        error: 'Failed to decrypt credentials'
+        error: 'Failed to decrypt credentials. Please re-save credentials.'
       });
     }
 
-    // Test connection
+    // Test connection with detailed error handling
     const scraper = new SeptaScraper(credentials);
-    const testResult = await scraper.testConnection();
+    let testResult = false;
+    let errorMessage = 'Connection test failed';
+    
+    try {
+      testResult = await scraper.testConnection();
+      
+      if (testResult) {
+        errorMessage = 'Connection successful';
+      } else {
+        errorMessage = 'Invalid credentials or portal access denied';
+      }
+    } catch (error) {
+      logger.error('Connection test error:', error);
+      
+      if (error.message.includes('initialization')) {
+        errorMessage = 'Browser initialization failed';
+      } else if (error.message.includes('credentials')) {
+        errorMessage = 'Invalid username or password';
+      } else if (error.message.includes('timeout') || error.message.includes('network')) {
+        errorMessage = 'Network timeout or portal unavailable';
+      } else {
+        errorMessage = `Connection failed: ${error.message}`;
+      }
+    }
 
     // Update test result in database
-    await Credential.findByIdAndUpdate(credential._id, {
-      lastTestedAt: new Date(),
-      lastTestOk: testResult
-    });
+    if (useMockDB()) {
+      await mockDB.updateCredential(credential._id, {
+        lastTestedAt: new Date().toISOString(),
+        lastTestOk: testResult
+      });
+    } else {
+      await Credential.findByIdAndUpdate(credential._id, {
+        lastTestedAt: new Date(),
+        lastTestOk: testResult
+      });
+    }
 
-    logger.info(`SEPTA credentials test result: ${testResult ? 'Success' : 'Failed'}`);
+    logger.info(`SEPTA credentials test result: ${testResult ? 'SUCCESS' : 'FAILED'} - ${errorMessage}`);
 
     res.json({
       success: true,
       data: {
         testPassed: testResult,
-        message: testResult ? 'Connection successful' : 'Connection failed'
+        message: errorMessage,
+        timestamp: new Date().toISOString()
       }
     });
   } catch (error) {
@@ -169,14 +232,21 @@ export const testSeptaCredentials = async (req, res) => {
     
     res.status(500).json({
       success: false,
-      error: 'Failed to test credentials'
+      error: 'Failed to test credentials due to system error'
     });
   }
 };
 
 export const deleteSeptaCredentials = async (req, res) => {
   try {
-    const result = await Credential.deleteOne({ portal: 'SEPTA' });
+    let result;
+    
+    if (useMockDB()) {
+      logger.info('Using mock database for credential deletion');
+      result = await mockDB.deleteCredential('SEPTA');
+    } else {
+      result = await Credential.deleteOne({ portal: 'SEPTA' });
+    }
 
     if (result.deletedCount === 0) {
       return res.status(404).json({
