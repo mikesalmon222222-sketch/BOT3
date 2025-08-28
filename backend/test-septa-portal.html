@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEPTA Vendor Portal - Mock</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .login-form { max-width: 400px; margin: 50px auto; padding: 20px; border: 1px solid #ccc; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 8px; }
+        button { background: #007cba; color: white; padding: 10px 20px; border: none; cursor: pointer; }
+        .bids-list { margin-top: 30px; }
+        .bid-item { border: 1px solid #ddd; margin: 10px 0; padding: 15px; }
+        .bid-title { font-weight: bold; color: #007cba; }
+        .bid-details { margin-top: 5px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="login-form">
+        <h2>SEPTA Vendor Portal Login</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <div id="dashboard" style="display: none;">
+        <h1>SEPTA Vendor Portal Dashboard</h1>
+        <nav>
+            <a href="#" id="quotesLink">Quotes Under $100,000</a> |
+            <a href="#">Requisitions</a> |
+            <a href="#">My Account</a>
+        </nav>
+
+        <div id="quotesSection" style="display: none;">
+            <h2>Quotes Under $100,000</h2>
+            <div class="search-section">
+                <button id="searchBtn">Search</button>
+            </div>
+            
+            <div id="bidsList" class="bids-list" style="display: none;">
+                <h3>Available Requisitions</h3>
+                
+                <div class="bid-item">
+                    <div class="bid-title">RFP-2024-001: IT Services and Support</div>
+                    <div class="bid-details">
+                        Posted: 01/15/2024 | Due: 02/15/2024 | Amount: $75,000
+                        <br>Description: Professional IT consulting and support services for SEPTA operations
+                        <br><a href="#" class="doc-link">Download Specifications.pdf</a>
+                    </div>
+                </div>
+
+                <div class="bid-item">
+                    <div class="bid-title">RFQ-2024-002: Office Supplies and Equipment</div>
+                    <div class="bid-details">
+                        Posted: 01/20/2024 | Due: 02/20/2024 | Amount: $45,000
+                        <br>Description: Procurement of office supplies and equipment for administrative facilities
+                        <br><a href="#" class="doc-link">Download Requirements.pdf</a>
+                    </div>
+                </div>
+
+                <div class="bid-item">
+                    <div class="bid-title">SOL-2024-003: Maintenance Services Contract</div>
+                    <div class="bid-details">
+                        Posted: 01/25/2024 | Due: 02/25/2024 | Amount: $95,000
+                        <br>Description: Annual maintenance contract for facility equipment and systems
+                        <br><a href="#" class="doc-link">Download SOW.pdf</a>
+                    </div>
+                </div>
+
+                <div class="bid-item">
+                    <div class="bid-title">RFP-2024-004: Training and Development Services</div>
+                    <div class="bid-details">
+                        Posted: 01/30/2024 | Due: 03/01/2024 | Amount: $60,000
+                        <br>Description: Professional training and development services for staff
+                        <br><a href="#" class="doc-link">Download Training Plan.pdf</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            // Mock authentication - accepts JoeRoot/Quan999999
+            if (username === 'JoeRoot' && password === 'Quan999999') {
+                document.querySelector('.login-form').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+            } else {
+                alert('Invalid credentials');
+            }
+        });
+
+        document.getElementById('quotesLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('quotesSection').style.display = 'block';
+        });
+
+        document.getElementById('searchBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('bidsList').style.display = 'block';
+        });
+    </script>
+</body>
+</html>

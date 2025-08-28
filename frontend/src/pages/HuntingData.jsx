@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { bidsAPI } from '../services/api';
+import { bidsAPI, debugAPI } from '../services/api';
 import { useApp } from '../context/AppContext';
 import TopBar from '../components/TopBar';
 import BidTable from '../components/BidTable';
@@ -23,6 +23,8 @@ const HuntingData = () => {
   });
   const [fetching, setFetching] = useState(false);
   const [fetchResult, setFetchResult] = useState(null);
+  const [debugMode, setDebugMode] = useState(false);
+  const [screenshots, setScreenshots] = useState([]);
 
   useEffect(() => {
     loadBids(1);
@@ -87,9 +89,17 @@ const HuntingData = () => {
 
     try {
       await handleAsync(async () => {
-        const response = await bidsAPI.fetchSeptaBids();
+        const response = debugMode 
+          ? await bidsAPI.fetchSeptaBidsDebug()
+          : await bidsAPI.fetchSeptaBids();
+        
         setFetchResult(response.data.data);
         actions.setLastFetchTime(new Date().toISOString());
+        
+        // Load screenshots if debug mode
+        if (debugMode) {
+          loadScreenshots();
+        }
         
         // Reload bids after fetch
         setTimeout(() => {
@@ -97,9 +107,33 @@ const HuntingData = () => {
         }, 1000);
       }, 'Failed to fetch SEPTA bids');
     } catch (error) {
-      setFetchResult({ inserted: 0, updated: 0, skipped: 0, error: error.message });
+      setFetchResult({ 
+        inserted: 0, 
+        updated: 0, 
+        skipped: 0, 
+        error: error.message,
+        details: error.details || ''
+      });
     } finally {
       setFetching(false);
+    }
+  };
+
+  const loadScreenshots = async () => {
+    try {
+      const response = await debugAPI.getScreenshots();
+      setScreenshots(response.data.data.screenshots || []);
+    } catch (error) {
+      console.error('Failed to load screenshots:', error);
+    }
+  };
+
+  const clearScreenshots = async () => {
+    try {
+      await debugAPI.clearScreenshots();
+      setScreenshots([]);
+    } catch (error) {
+      console.error('Failed to clear screenshots:', error);
     }
   };
 
@@ -133,23 +167,63 @@ const HuntingData = () => {
         {/* Controls Section */}
         <div className="controls-section">
           <div className="fetch-controls">
-            <button
-              onClick={handleManualFetch}
-              disabled={fetching}
-              className="fetch-btn"
-            >
-              {fetching ? '🔄 Fetching...' : '🔄 Fetch Now'}
-            </button>
+            <div className="fetch-options">
+              <button
+                onClick={handleManualFetch}
+                disabled={fetching}
+                className="fetch-btn"
+              >
+                {fetching ? '🔄 Fetching...' : debugMode ? '🔧 Debug Fetch' : '🔄 Fetch Now'}
+              </button>
+              
+              <label className="debug-toggle">
+                <input
+                  type="checkbox"
+                  checked={debugMode}
+                  onChange={(e) => setDebugMode(e.target.checked)}
+                  disabled={fetching}
+                />
+                Debug Mode (Screenshots)
+              </label>
+            </div>
             
             {fetchResult && (
               <div className={`fetch-result ${fetchResult.error ? 'error' : 'success'}`}>
                 {fetchResult.error ? (
-                  <span>❌ Error: {fetchResult.error}</span>
+                  <div>
+                    <div>❌ Error: {fetchResult.error}</div>
+                    {fetchResult.details && (
+                      <div className="error-details">Details: {fetchResult.details}</div>
+                    )}
+                  </div>
                 ) : (
                   <span>
                     ✅ Fetched: {fetchResult.inserted} new, {fetchResult.updated} updated, {fetchResult.skipped} skipped
+                    {fetchResult.total && ` (${fetchResult.total} total processed)`}
                   </span>
                 )}
+              </div>
+            )}
+            
+            {/* Debug Screenshots Section */}
+            {debugMode && screenshots.length > 0 && (
+              <div className="debug-screenshots">
+                <div className="debug-header">
+                  <h4>Debug Screenshots ({screenshots.length})</h4>
+                  <button onClick={clearScreenshots} className="btn-small">Clear</button>
+                </div>
+                <div className="screenshot-grid">
+                  {screenshots.slice(0, 6).map((screenshot, index) => (
+                    <div key={index} className="screenshot-item">
+                      <img 
+                        src={screenshot.url} 
+                        alt={screenshot.filename}
+                        onClick={() => window.open(screenshot.url, '_blank')}
+                      />
+                      <span className="screenshot-name">{screenshot.filename}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>

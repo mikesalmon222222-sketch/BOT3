@@ -43,6 +43,13 @@ export const bidsAPI = {
   getBids: (params = {}) => api.get('/bids', { params }),
   deleteBid: (id) => api.delete(`/bids/${id}`),
   fetchSeptaBids: () => api.post('/bids/fetch/septa'),
+  fetchSeptaBidsDebug: () => api.post('/bids/fetch/septa/debug'),
+};
+
+// Debug API
+export const debugAPI = {
+  getScreenshots: () => api.get('/debug/screenshots'),
+  clearScreenshots: () => api.post('/debug/clear-screenshots'),
 };
 
 // Credentials API
